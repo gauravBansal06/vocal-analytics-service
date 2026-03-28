@@ -1237,13 +1237,13 @@ Every queue message follows a standard envelope:
 Each call progresses through a state machine tracked in PostgreSQL:
 
 ```
-RECEIVED → QUEUED → TRANSCRIBING → TRANSCRIBED → ANALYZING → ANALYZED
-                                                                 │
-                                                                 ▼
-                                                          COMPLIANCE_CHECK
-                                                                 │
-                                                                 ▼
-                                                            COMPLETED
+RECEIVED → QUEUED → TRANSCRIBING → TRANSCRIBED → PII_REDACTION → ANALYZING → ANALYZED
+                                                                                  │
+                                                                                  ▼
+                                                                           COMPLIANCE_CHECK
+                                                                                  │
+                                                                                  ▼
+                                                                             COMPLETED
 
 Any stage can transition to:
   → FAILED (after 3 retries exhausted — terminal, stored in DLQ)
@@ -1624,8 +1624,34 @@ Used for:
 - Total peak IOPS: ~250 — well within gp3's 3,000 baseline
 - **No need for provisioned IOPS (io1/io2)** at this scale
 
-**When to scale up:**
-- If `calls` table exceeds 20M rows → add table partitioning by `call_start_time` (monthly partitions)
+**Partitioning strategy (from day 1):**
+
+At 20K records/day, the `calls` and `analysis_results` tables will reach 7M+ rows/year. Rather than waiting for performance degradation, we partition proactively:
+
+- **`calls`**: Range-partitioned by `call_start_time` with monthly partitions. PostgreSQL native declarative partitioning — transparent to application queries.
+- **`analysis_results`**: Same monthly partitioning via `created_at`.
+- **`compliance_results`**: Same monthly partitioning via `created_at`.
+- **`transcripts`**: Partitioned by `created_at`; full transcript text also stored in S3 (DB stores summary only for query performance).
+
+```sql
+-- Example: calls table with monthly partitions
+CREATE TABLE calls (
+    ...
+    call_start_time TIMESTAMPTZ NOT NULL
+) PARTITION BY RANGE (call_start_time);
+
+-- Auto-create monthly partitions (pg_partman extension or cron job)
+CREATE TABLE calls_2026_03 PARTITION OF calls
+    FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+```
+
+**Benefits from day 1:**
+- Query performance stays constant as data grows (partition pruning)
+- Old partitions can be detached and archived independently (cheaper storage)
+- `VACUUM` and index maintenance operate on smaller partition chunks
+- No migration needed later — the schema supports it from the start
+
+**Additional scaling triggers:**
 - If reporting queries exceed 2s p95 → add read replica dedicated to reporting
 - If storage exceeds 200 GB → upgrade to db.r6g.xlarge for more RAM (buffer pool)
 
@@ -1870,26 +1896,67 @@ If the client requires **no data to leave their infrastructure** (regulatory/com
 
 **Auto-scaling triggers:**
 - Queue depth > 100 messages → scale up workers
-- Queue depth < 10 for 10 min → scale down
+- Queue depth < 10 for 10 min → scale down (but never below minimum)
 - GPU utilization > 80% → add GPU instance
 - API latency p95 > 300ms → add API instances
+
+**GPU cold start mitigation:**
+G5 instances take 3-5 minutes to spin up and load the Whisper model. To prevent SLO violations during traffic spikes:
+- **Minimum capacity: 2 GPU instances always running** (never scale to zero), even during off-peak hours
+- **AWS warm pool**: Pre-initialize stopped instances with Whisper model loaded in AMI — reduces cold start to ~60 seconds (instance start only, no model download)
+- **Scheduled scaling**: Pre-scale to 3-4 instances at 8:30am before business hours begin (predictable daily pattern)
+- Queue naturally buffers during the 1-3 minute scaling window — calls wait, they don't fail
 
 ---
 
 ## 12. Security & Compliance
 
-### 12.1 Data Security
+### 12.1 PII Redaction Pipeline Stage
+
+For a consumer services company handling billing calls, PII flows through every transcript — account numbers, dates of birth, SSNs, credit card numbers, phone numbers. This is **not optional**; PII must be redacted before transcripts reach external LLM APIs.
+
+**PII redaction runs as a post-transcription step, before AI analysis:**
+
+```
+Transcription → PII Redaction → AI Analysis → SOP Compliance → Storage
+                     │
+                     ├── Detect PII patterns (regex + NER)
+                     ├── Replace with tokens: [ACCOUNT_NUMBER], [SSN], [CREDIT_CARD], [DOB]
+                     ├── Store mapping (original → token) in encrypted side-table
+                     └── Redacted transcript sent to LLM; original stored encrypted in S3
+```
+
+**Detection approach (hybrid):**
+
+| PII Type | Detection Method | Replacement |
+|----------|-----------------|-------------|
+| Credit card numbers | Regex (Luhn-validated 13-19 digit patterns) | `[CREDIT_CARD]` |
+| SSN | Regex (`\d{3}-\d{2}-\d{4}`) | `[SSN]` |
+| Account numbers | Regex (configurable pattern per client) | `[ACCOUNT_NUMBER]` |
+| Phone numbers | Regex (10+ digits, common formats) | `[PHONE]` |
+| Dates of birth | Regex + context ("date of birth", "DOB", "born on") | `[DOB]` |
+| Names, addresses | SpaCy NER model (`en_core_web_sm`, ~15 MB) | `[PERSON]`, `[ADDRESS]` |
+
+**Why this matters for LLM calls:**
+- Redacted transcripts sent to OpenAI/external LLMs contain **zero raw PII**
+- Even with enterprise data processing agreements, minimizing PII exposure is defense-in-depth
+- The original unredacted transcript is stored **only** in S3 with KMS encryption, accessible only for audit/compliance
+- Redaction adds ~1-2 seconds per call (regex is fast; SpaCy NER is lightweight)
+
+**Implementation:** Python `presidio-analyzer` (Microsoft's open-source PII detection library) or custom regex + SpaCy pipeline. Both run on CPU with negligible resource overhead.
+
+### 12.2 Data Security
 
 | Concern | Mitigation |
 |---------|-----------|
-| Audio contains PII (names, account numbers, DOB) | Encrypt at rest (S3 SSE-KMS, RDS encryption) |
+| Audio contains PII | Encrypt at rest (S3 SSE-KMS, RDS encryption) |
+| PII in transcripts | **Redacted before LLM API calls** (see 12.1); originals encrypted in S3 |
 | Data in transit | TLS 1.3 for all inter-service communication |
-| LLM data leakage | Use OpenAI/Anthropic enterprise plans with data privacy agreements; no training on our data |
+| LLM data leakage | Enterprise plans with data privacy agreements + PII redaction as defense-in-depth |
 | Access control | RBAC via API Gateway; least-privilege IAM roles for services |
 | Audit trail | All data access logged; export requests tracked in `export_jobs` table |
-| PII in transcripts | Optional PII redaction module (detect and mask SSN, credit card numbers, DOB) |
 
-### 12.2 Compliance Considerations
+### 12.3 Compliance Considerations
 
 - **Call recording consent**: Assumed handled by StreamLine's existing system (not in scope)
 - **Data residency**: Deploy in client's preferred AWS region
