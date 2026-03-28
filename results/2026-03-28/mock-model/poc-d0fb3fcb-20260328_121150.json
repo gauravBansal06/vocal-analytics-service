@@ -1,6 +1,6 @@
 {
-  "call_id": "poc-cf1a2a7b",
-  "timestamp": "2026-03-28T11:32:22.297830+00:00",
+  "call_id": "poc-d0fb3fcb",
+  "timestamp": "2026-03-28T12:11:50.624262+00:00",
   "processing_time_ms": 0,
   "input_file": "transcript.txt",
   "model_used": "mock-model",
@@ -10,11 +10,11 @@
     "total_tokens": 0
   },
   "result": {
-    "call_id": "poc-cf1a2a7b",
+    "call_id": "poc-d0fb3fcb",
     "status": "success",
     "processing_time_ms": 0,
     "input_file": "transcript.txt",
-    "result_file": "results/2026-03-28/mock-model/poc-cf1a2a7b-20260328_113222.json",
+    "result_file": "results/2026-03-28/mock-model/poc-d0fb3fcb-20260328_121150.json",
     "transcription": {
       "source": "text",
       "model": null,

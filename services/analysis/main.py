@@ -187,14 +187,16 @@ async def analyze(
     timestamp_str = now.strftime("%Y%m%d_%H%M%S")
     model_dir = RESULTS_DIR / date_str / analysis.model_used
     model_dir.mkdir(parents=True, exist_ok=True)
-    result_file = model_dir / f"{call_id}-{timestamp_str}.json"
+    result_filename = f"{call_id}-{timestamp_str}.json"
+    result_file = model_dir / result_filename
+    result_file_relative = f"results/{date_str}/{analysis.model_used}/{result_filename}"
 
     response = AnalyzeResponse(
         call_id=call_id,
         status="partial" if analysis.flags.requires_manual_review else "success",
         processing_time_ms=elapsed_ms,
         input_file=input_filename,
-        result_file=str(result_file),
+        result_file=result_file_relative,
         transcription=transcription_info,
         analysis=AnalysisWithModel(
             model_used=analysis.model_used,

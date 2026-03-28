@@ -74,7 +74,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> TranscriptionResult:
 
         full_text = " ".join(seg.text.strip() for seg in all_segments)
         avg_confidence = (
-            sum(seg.avg_log_prob for seg in all_segments) / len(all_segments)
+            sum(seg.avg_logprob for seg in all_segments) / len(all_segments)
         )
         # Convert log prob to a 0-1 confidence (approximate)
         # avg_log_prob is typically between -1.0 and 0.0

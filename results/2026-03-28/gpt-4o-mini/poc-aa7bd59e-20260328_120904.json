@@ -1,0 +1,74 @@
+{
+  "call_id": "poc-aa7bd59e",
+  "timestamp": "2026-03-28T12:09:04.497457+00:00",
+  "processing_time_ms": 7552,
+  "input_file": "test_audio.wav",
+  "model_used": "gpt-4o-mini",
+  "token_usage": {
+    "input_tokens": 706,
+    "output_tokens": 240,
+    "total_tokens": 946
+  },
+  "result": {
+    "call_id": "poc-aa7bd59e",
+    "status": "success",
+    "processing_time_ms": 7552,
+    "input_file": "test_audio.wav",
+    "result_file": "results/2026-03-28/gpt-4o-mini/poc-aa7bd59e-20260328_120904.json",
+    "transcription": {
+      "source": "audio",
+      "model": "faster-whisper-base",
+      "duration_seconds": 45.3,
+      "confidence": 0.819,
+      "text": "Okay, I'm here. Hi, I'd like to buy a Chromecast, and I was wondering whether you could help me with that. Certainly, which color would you like? We have blue, black, and red. Let's get the black one. Okay, great. Would you like the new Chromecast Ultra model or the regular Chromecast? Um, regular Chromecast design. Okay, sure. Would you like to ship it regular or express? Express please. Terrific. It's on the way. Thank you very much. Thank you. Bye."
+    },
+    "analysis": {
+      "model_used": "gpt-4o-mini",
+      "issue": {
+        "primary_category": "product",
+        "sub_category": "purchase_request",
+        "description": "The customer wanted to buy a Chromecast and needed assistance with the purchase.",
+        "confidence": 0.9
+      },
+      "resolution": {
+        "status": "resolved",
+        "action_taken": "processed the order for the regular Chromecast in black color with express shipping.",
+        "description": "The agent successfully assisted the customer in purchasing the Chromecast and arranged for express shipping.",
+        "confidence": 0.9
+      },
+      "sentiment": {
+        "overall": "positive",
+        "trajectory": "stable",
+        "score": 0.9,
+        "segments": [
+          {
+            "phase": "opening",
+            "sentiment": "neutral",
+            "score": 0.0
+          },
+          {
+            "phase": "middle",
+            "sentiment": "positive",
+            "score": 0.9
+          },
+          {
+            "phase": "closing",
+            "sentiment": "positive",
+            "score": 1.0
+          }
+        ]
+      },
+      "themes": [
+        "purchase",
+        "customer_service"
+      ],
+      "pain_points": []
+    },
+    "flags": {
+      "requires_manual_review": false,
+      "incomplete_input": false,
+      "low_confidence_fields": [],
+      "ai_uncertainty_notes": null
+    }
+  }
+}
