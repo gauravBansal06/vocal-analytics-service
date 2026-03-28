@@ -825,7 +825,7 @@ steps:
 - SOPs are versioned — when updated, old calls retain their compliance score against the SOP version at the time
 - Admin API for CRUD operations on SOPs
 - Call type → SOP mapping is many-to-many via `sop_category_mappings` (a call might match multiple SOPs)
-- SOP matching uses `analysis_results.issue_category_id` → looks up matching SOPs via `sop_category_mappings` JOIN
+- SOP matching uses `analysis_results.issue_category_id` to look up applicable SOPs via `sop_category_mappings` (JOIN on `category_id`)
 
 #### 5.4.1 SOP Creation & Management Module
 
