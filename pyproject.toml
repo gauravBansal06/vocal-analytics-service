@@ -1,0 +1,12 @@
+[project]
+name = "vocal-analytics-service"
+version = "0.1.0"
+description = "AI Analysis Layer POC for StreamLine Call Analytics Platform"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: tests that require a live LLM API key",
+]

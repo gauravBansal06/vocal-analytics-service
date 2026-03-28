@@ -1,0 +1,78 @@
+{
+  "call_id": "poc-cf1a2a7b",
+  "timestamp": "2026-03-28T11:32:22.297830+00:00",
+  "processing_time_ms": 0,
+  "input_file": "transcript.txt",
+  "model_used": "mock-model",
+  "token_usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 0
+  },
+  "result": {
+    "call_id": "poc-cf1a2a7b",
+    "status": "success",
+    "processing_time_ms": 0,
+    "input_file": "transcript.txt",
+    "result_file": "/Users/gauravb/Desktop/My Documents/Tech/Interviews/TailoredAI/vocal-analytics-service/results/2026-03-28/mock-model/poc-cf1a2a7b-20260328_113222.json",
+    "transcription": {
+      "source": "text",
+      "model": null,
+      "duration_seconds": null,
+      "confidence": null,
+      "text": "Agent: Thank you for calling StreamLine, my name is Sarah. How can I help you today?\nCustomer: Hi Sarah. I just noticed I was charged twice for my subscription this month. I am really frustrated because this is the second time this has happened.\nAgent: I am sorry to hear that. Let me pull up your account right away. Can you verify your account number for me?\nCustomer: Sure, its 4582-1193.\nAgent: Thank you. I can see the duplicate charge here. I will process a refund immediately. You should see it back in your account within 5-7 business days.\nCustomer: 5-7 days? That seems like a long time for your mistake.\nAgent: I understand your frustration. Unfortunately that is the standard processing time from the bank side. Is there anything else I can help you with today?\nCustomer: No, that will be all. Thank you.\nAgent: Thank you for calling StreamLine. Have a great day!\n"
+    },
+    "analysis": {
+      "model_used": "mock-model",
+      "issue": {
+        "primary_category": "billing",
+        "sub_category": "duplicate_charge",
+        "description": "Customer was charged twice for their monthly subscription.",
+        "confidence": 0.95
+      },
+      "resolution": {
+        "status": "resolved",
+        "action_taken": "refund_initiated",
+        "description": "Agent verified the duplicate charge and initiated an immediate refund.",
+        "confidence": 0.92
+      },
+      "sentiment": {
+        "overall": "negative_to_neutral",
+        "trajectory": "improving",
+        "score": -0.2,
+        "segments": [
+          {
+            "phase": "opening",
+            "sentiment": "frustrated",
+            "score": -0.7
+          },
+          {
+            "phase": "middle",
+            "sentiment": "neutral",
+            "score": -0.1
+          },
+          {
+            "phase": "closing",
+            "sentiment": "accepting",
+            "score": 0.1
+          }
+        ]
+      },
+      "themes": [
+        "duplicate_billing",
+        "refund_request",
+        "subscription_management"
+      ],
+      "pain_points": [
+        "Customer was charged twice \u2014 recurring issue",
+        "5-7 business day refund timeline perceived as too long"
+      ]
+    },
+    "flags": {
+      "requires_manual_review": false,
+      "incomplete_input": false,
+      "low_confidence_fields": [],
+      "ai_uncertainty_notes": null
+    }
+  }
+}

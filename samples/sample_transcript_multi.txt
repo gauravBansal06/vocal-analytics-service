@@ -1,0 +1,11 @@
+Agent: Thank you for calling StreamLine support. My name is James. How may I assist you today?
+Customer: Hi James. I have two issues actually. First, my internet has been really slow for the past week. I can barely load web pages. And second, I noticed my bill went up by 15 dollars this month and I have no idea why.
+Agent: I am sorry to hear about both of those issues. Let me look into them one at a time. Let me start with your internet speed. Can you tell me your account number?
+Customer: Yes, it is 7734-2891.
+Agent: Thank you. I can see your account here. It looks like there was a service degradation in your area last week due to maintenance. That should be resolved now. Have you tried restarting your router?
+Customer: No, I have not. Should I do that now?
+Agent: That would be helpful. While you do that, let me look into the billing increase. I can see that your promotional rate expired last month, so your plan reverted to the standard pricing. I can offer you a new promotional rate of 10 dollars off for the next 12 months. Would you like me to apply that?
+Customer: Yes please, that would be great. And okay, I just restarted the router. Let me check... yes, it does seem faster now. Thank you.
+Agent: Wonderful! I have applied the promotional discount to your account. You will see it reflected on your next bill. Is there anything else I can help with?
+Customer: No, that covers everything. Thanks for your help James.
+Agent: My pleasure. Thank you for calling StreamLine. Have a great day!

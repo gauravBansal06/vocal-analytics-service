@@ -1,0 +1,9 @@
+Agent: Thank you for calling StreamLine, my name is Sarah. How can I help you today?
+Customer: Hi Sarah. I just noticed I was charged twice for my subscription this month. I am really frustrated because this is the second time this has happened.
+Agent: I am sorry to hear that. Let me pull up your account right away. Can you verify your account number for me?
+Customer: Sure, its 4582-1193.
+Agent: Thank you. I can see the duplicate charge here. I will process a refund immediately. You should see it back in your account within 5-7 business days.
+Customer: 5-7 days? That seems like a long time for your mistake.
+Agent: I understand your frustration. Unfortunately that is the standard processing time from the bank side. Is there anything else I can help you with today?
+Customer: No, that will be all. Thank you.
+Agent: Thank you for calling StreamLine. Have a great day!

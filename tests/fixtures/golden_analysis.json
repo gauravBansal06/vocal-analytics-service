@@ -1,0 +1,29 @@
+{
+  "issue": {
+    "primary_category": "billing",
+    "sub_category": "duplicate_charge",
+    "description": "Customer was charged twice for their monthly subscription.",
+    "confidence": 0.95
+  },
+  "resolution": {
+    "status": "resolved",
+    "action_taken": "refund_initiated",
+    "description": "Agent verified the duplicate charge and initiated an immediate refund.",
+    "confidence": 0.92
+  },
+  "sentiment": {
+    "overall": "negative_to_neutral",
+    "trajectory": "improving",
+    "score": -0.2,
+    "segments": [
+      {"phase": "opening", "sentiment": "frustrated", "score": -0.7},
+      {"phase": "middle", "sentiment": "neutral", "score": -0.1},
+      {"phase": "closing", "sentiment": "accepting", "score": 0.1}
+    ]
+  },
+  "themes": ["duplicate_billing", "refund_request", "subscription_management"],
+  "pain_points": [
+    "Customer was charged twice — recurring issue",
+    "5-7 business day refund timeline perceived as too long"
+  ]
+}
