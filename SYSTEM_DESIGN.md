@@ -1014,6 +1014,20 @@ GET    /api/v1/sops/:id/stats          — Compliance stats for this SOP (pass/f
 
 **Decision:** PostgreSQL handles structured + semi-structured data well via JSONB columns. At 20K records/day (~600K/month), PostgreSQL scales comfortably for years. No need for NoSQL complexity at this volume.
 
+**Why PostgreSQL over MySQL/MariaDB:**
+
+| Factor | PostgreSQL | MySQL/MariaDB |
+|--------|-----------|---------------|
+| JSONB columns | Native, indexable (GIN), queryable | JSON type exists but no GIN index, limited query operators |
+| Array types | Native `TEXT[]`, `INTEGER[]` with GIN index | Not supported (requires join table or serialized string) |
+| Window functions | Full support since v8.4 (mature) | Added in MySQL 8.0 (less mature, fewer optimizations) |
+| Materialized views | Native `CREATE MATERIALIZED VIEW` with `REFRESH CONCURRENTLY` | Not supported (must simulate with tables + triggers) |
+| `FILTER` clause | `COUNT(*) FILTER (WHERE ...)` — used heavily in our MVs | Not supported (requires `CASE WHEN` workarounds) |
+| Partitioning | Declarative range/list/hash (native since v10) | Supported but less flexible (no partition pruning on JOINs) |
+| Full-text search | `tsvector`/`tsquery` with ranking (fallback before ES) | `FULLTEXT` index (less flexible ranking/stemming) |
+
+Our schema relies heavily on JSONB (`sentiment_segments`, `full_analysis`, `checks` in compliance), PostgreSQL arrays (`themes TEXT[]`, `pain_points TEXT[]`), materialized views with `FILTER` clauses, and declarative partitioning — all features where PostgreSQL has a significant advantage over MySQL. Choosing MySQL would require schema workarounds (join tables instead of arrays, manual MV refresh via cron, CASE expressions instead of FILTER) that add complexity without benefit.
+
 **Why Elasticsearch in addition to PostgreSQL:**
 - Full-text search across transcripts ("find all calls where customer mentioned competitor X")
 - Pre-computed aggregations for dashboard (much faster than SQL GROUP BY on large datasets)
