@@ -146,9 +146,6 @@ The system is composed of **two planes** — a **data processing pipeline** (aut
 
 ### 4.1 End-to-End Data Flow
 
-> **Key correction from earlier draft:** AI Analysis and SOP Compliance are **sequential**, not
-> parallel. Compliance depends on the `issue_category` from Analysis to load the correct SOP.
-
 ```
  ══════════════════════════════════════════════════════════════════════════
  ║                      ADMIN / MANAGEMENT PLANE                        ║
