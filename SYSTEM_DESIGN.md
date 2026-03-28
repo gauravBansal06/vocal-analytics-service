@@ -216,6 +216,19 @@ The system is composed of **two planes** — a **data processing pipeline** (aut
  ║      └───────────────┬───────────────┘                               ║
  ║                      │                                               ║
  ║                      ▼                                               ║
+ ║      ┌───────────────────────────────┐                               ║
+ ║      │  2b. PII REDACTION            │                               ║
+ ║      │                               │                               ║
+ ║      │  • Regex: SSN, credit card,   │                               ║
+ ║      │    account numbers, phone     │                               ║
+ ║      │  • NER (SpaCy): names, addr.  │                               ║
+ ║      │  • Replace with tokens:       │                               ║
+ ║      │    [SSN], [CREDIT_CARD], etc. │                               ║
+ ║      │  • Original → encrypted S3    │                               ║
+ ║      │  • Redacted → sent to LLM    │                               ║
+ ║      └───────────────┬───────────────┘                               ║
+ ║                      │                                               ║
+ ║                      ▼                                               ║
  ║      ┌──────────────────────────────┐                                ║
  ║      │    ANALYSIS QUEUE            │                                ║
  ║      └───────────────┬──────────────┘                                ║
@@ -364,26 +377,27 @@ The system is composed of **two planes** — a **data processing pipeline** (aut
                                     SEQUENTIAL PIPELINE
                                     (each stage depends on previous output)
 
-┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌───────────┐
-│  Audio   │───▶│ Transcribe   │───▶│   Analyze    │───▶│  Compliance  │───▶│  Store    │
-│  Ingest  │    │   Queue      │    │   Queue      │    │   Queue      │    │  Queue    │
-└──────────┘    └──────┬───────┘    └──────┬───────┘    └──────┬───────┘    └─────┬─────┘
-                       │                   │                   │                  │
-                       ▼                   ▼                   ▼                  ▼
-                ┌────────────┐      ┌────────────┐      ┌────────────┐     ┌──────────┐
-                │  Workers   │      │  Workers   │      │  Workers   │     │ Workers  │
-                │  (GPU)     │      │  (CPU)     │      │  (CPU)     │     │ (CPU)    │
-                │  N=3-5     │      │  N=5-10    │      │  N=3-5     │     │ N=2-3    │
-                │            │      │            │      │            │     │          │
-                │ Faster-    │      │ LLM API    │      │ Rule eng.  │     │ PG write │
-                │ Whisper    │      │ calls      │      │ + LLM API  │     │ ES index │
-                │ + pyannote │      │ (GPT-4o-   │      │            │     │ Redis    │
-                │            │      │  mini/4o)  │      │ Loads SOPs │     │ counters │
-                │ Output:    │      │            │      │ by issue   │     │ S3 store │
-                │ diarized   │      │ Loads:     │      │ category   │     │          │
-                │ transcript │      │ categories │      │ from DB    │     │          │
-                └────────────┘      │ from DB    │      └────────────┘     └──────────┘
-                                    └────────────┘
+┌──────────┐  ┌────────────┐  ┌──────────┐  ┌────────────┐  ┌────────────┐  ┌─────────┐
+│  Audio   │─▶│ Transcribe │─▶│   PII    │─▶│  Analyze   │─▶│ Compliance │─▶│  Store  │
+│  Ingest  │  │  Queue     │  │ Redact   │  │  Queue     │  │  Queue     │  │  Queue  │
+└──────────┘  └─────┬──────┘  └────┬─────┘  └─────┬──────┘  └─────┬──────┘  └────┬────┘
+                    │              │               │               │              │
+                    ▼              ▼               ▼               ▼              ▼
+             ┌───────────┐  ┌──────────┐   ┌───────────┐   ┌───────────┐  ┌──────────┐
+             │ Workers   │  │ Workers  │   │ Workers   │   │ Workers   │  │ Workers  │
+             │ (GPU)     │  │ (CPU)    │   │ (CPU)     │   │ (CPU)     │  │ (CPU)    │
+             │ N=3-5     │  │ N=2-3    │   │ N=5-10    │   │ N=3-5     │  │ N=2-3    │
+             │           │  │          │   │           │   │           │  │          │
+             │ Faster-   │  │ Regex +  │   │ LLM API   │   │ Rule eng. │  │ PG write │
+             │ Whisper   │  │ SpaCy    │   │ (GPT-4o-  │   │ + LLM API │  │ ES index │
+             │ + pyannot │  │ NER      │   │  mini/4o) │   │           │  │ Redis    │
+             │           │  │          │   │           │   │ Loads SOPs│  │ counters │
+             │ Output:   │  │ Redacted │   │ Loads:    │   │ by issue  │  │ S3 store │
+             │ diarized  │  │ transcrip│   │ categories│   │ category  │  │          │
+             │ transcript│  │ → LLM    │   │ from DB   │   │ from DB   │  │          │
+             │           │  │ Original │   │           │   │           │  │          │
+             │           │  │ → enc. S3│   │           │   │           │  │          │
+             └───────────┘  └──────────┘   └───────────┘   └───────────┘  └──────────┘
 
                        ▲                                      ▲
                        │          REFERENCE DATA              │
@@ -557,6 +571,10 @@ The system is composed of **two planes** — a **data processing pipeline** (aut
 }
 ```
 
+**Post-transcription: PII Redaction**
+
+Before the transcript reaches the AI Analysis Service, it passes through PII redaction (see Section 12.1). The raw transcript is stored encrypted in S3; the redacted version (with tokens like `[ACCOUNT_NUMBER]`, `[SSN]`) is what gets sent to the LLM. This ensures no raw PII leaves the VPC via external API calls.
+
 **Error handling:**
 - Audio too noisy (confidence < 0.5): flag for manual review, still proceed with best-effort transcript
 - Unsupported language: detect and flag, attempt English transcription as fallback
@@ -568,6 +586,8 @@ The system is composed of **two planes** — a **data processing pipeline** (aut
 ### 5.3 AI Analysis Service
 
 **Purpose:** Extract structured insights from the transcript using an LLM.
+
+**Input:** PII-redacted transcript (tokens like `[ACCOUNT_NUMBER]` replace raw PII — see Section 12.1). No raw customer PII reaches the external LLM API.
 
 **Technology choice: Tiered LLM approach**
 
@@ -1195,6 +1215,10 @@ GET  /api/v1/exports/:job_id  (poll for completion, download link)
 │  transcription-queue ──── priority: normal                  │
 │       ├── consumer group: transcription-workers (3-5)       │
 │       └── DLQ: transcription-dlq (retry exhausted)          │
+│                                                             │
+│  pii-redaction-queue ──── priority: normal                  │
+│       ├── consumer group: redaction-workers (2-3)           │
+│       └── DLQ: redaction-dlq                                │
 │                                                             │
 │  analysis-queue ────────── priority: normal                  │
 │       ├── consumer group: analysis-workers (5-10)           │
