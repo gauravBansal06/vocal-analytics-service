@@ -11,22 +11,23 @@ This is a working proof of concept for **Building Block 2 (AI Analysis Layer)** 
 ## Table of Contents
 
 1. [What This POC Does](#what-this-poc-does)
-2. [Architecture Overview](#architecture-overview)
+2. [Quick Start](#quick-start-tldr)
 3. [Technology Stack](#technology-stack)
 4. [Machine Requirements](#machine-requirements)
-5. [LLM Provider Options](#llm-provider-options)
-6. [Setup & Installation](#setup--installation)
+5. [Setup & Installation](#setup--installation)
+6. [LLM Provider Options](#llm-provider-options)
 7. [API Reference](#api-reference)
 8. [Input Formats & Validation](#input-formats--validation)
-9. [AI Pipeline Design](#ai-pipeline-design)
-10. [Prompt Design](#prompt-design)
-11. [Structured Output Schema](#structured-output-schema)
-12. [Handling Uncertainty & Incomplete Input](#handling-uncertainty--incomplete-input)
-13. [Sample Requests & Responses](#sample-requests--responses)
-14. [Project Structure](#project-structure)
-15. [Testing](#testing)
-16. [Assumptions](#assumptions)
-17. [Limitations (POC vs Production)](#limitations-poc-vs-production)
+9. [Architecture Overview](#architecture-overview)
+10. [AI Pipeline Design](#ai-pipeline-design)
+11. [Prompt Design](#prompt-design)
+12. [Structured Output Schema](#structured-output-schema)
+13. [Handling Uncertainty & Incomplete Input](#handling-uncertainty--incomplete-input)
+14. [Sample Requests & Responses](#sample-requests--responses)
+15. [Project Structure](#project-structure)
+16. [Testing](#testing)
+17. [Assumptions](#assumptions)
+18. [Limitations (POC vs Production)](#limitations-poc-vs-production)
 
 ---
 
@@ -43,77 +44,27 @@ Given a customer support call (as audio file or transcript file), this service e
 | **Pain Points** | Specific frustrations or problems voiced by the customer |
 | **Flags** | Whether the AI is uncertain, input is incomplete, or manual review is needed |
 
-### POC Scope vs Production
-
-| Aspect | POC (this repo) | Production (SYSTEM_DESIGN.md) |
-|--------|----------------|-------------------------------|
-| Input | Single file via API | S3 event-driven batch pipeline |
-| Transcription | Faster-Whisper `base` on CPU | Faster-Whisper `large-v3` on GPU |
-| LLM | OpenAI / Azure OpenAI or Ollama local | GPT-4o-mini with tiered escalation |
-| Storage | Results saved to `results/` (date/model organized) | PostgreSQL + Elasticsearch + S3 |
-| Scale | 1 request at a time | 15,000–20,000 calls/day |
-| SOP Compliance | Not included | Hybrid rule + LLM engine |
-| Auth | None | JWT + RBAC |
-
 ---
 
-## Architecture Overview
+## Quick Start (TL;DR)
 
-```
-                         ┌──────────────────────────────┐
-                         │         POST /analyze         │
-                         │                              │
-                         │  Upload: audio file (.wav,   │
-                         │  .mp3, .ogg, .flac, .m4a)    │
-                         │    OR                         │
-                         │  Upload: transcript file      │
-                         │  (.txt)                       │
-                         └──────────────┬───────────────┘
-                                        │
-                              ┌─────────▼─────────┐
-                              │  Input Validator   │
-                              │                    │
-                              │ • File type check  │
-                              │ • Size limit (50MB)│
-                              │ • Encoding check   │
-                              └─────────┬──────────┘
-                                        │
-                          ┌─────────────┼──────────────┐
-                          │ audio file  │              │ .txt file
-                          ▼             │              ▼
-               ┌──────────────────┐     │    ┌─────────────────┐
-               │  Transcription   │     │    │  Transcript      │
-               │  Module          │     │    │  Reader          │
-               │                  │     │    │                  │
-               │  faster-whisper  │     │    │  • UTF-8 decode  │
-               │  (base model,   │     │    │  • Content check │
-               │   CPU inference) │     │    │                  │
-               └────────┬─────────┘     │    └────────┬────────┘
-                        │               │             │
-                        └───────────────┼─────────────┘
-                                        │
-                                        ▼
-                              ┌──────────────────┐
-                              │  AI Analysis     │
-                              │  Engine          │
-                              │                  │
-                              │  • Build prompt  │
-                              │    with taxonomy │
-                              │  • Call LLM API  │
-                              │  • Parse JSON    │
-                              │  • Validate      │
-                              │    against schema│
-                              │  • Score         │
-                              │    confidence    │
-                              │  • Flag          │
-                              │    uncertainty   │
-                              └────────┬─────────┘
-                                       │
-                                       ▼
-                              ┌──────────────────┐
-                              │  Structured      │
-                              │  JSON Response   │
-                              └──────────────────┘
+```bash
+# 1. Setup (one-time)
+./setup.sh
+
+# 2. Configure — set your OpenAI key in .env
+#    Or set LLM_PROVIDER=ollama for local mode (no key needed)
+
+# 3. Run
+source .venv/bin/activate
+python app.py
+
+# 4. Test
+curl -X POST http://localhost:8000/analyze \
+  -F "file=@samples/sample_transcript.txt"
+
+# 5. View API docs
+open http://localhost:8000/docs
 ```
 
 ---
@@ -181,6 +132,55 @@ python-dotenv>=1.0.0      # Environment variable management
 | `medium` | 1.5 GB | ~5 GB | ~300 sec | ~3.1% | High accuracy (slow on CPU) |
 
 **POC default: `base`** — best balance of accuracy and speed for CPU inference. Automatically downloaded on first use (~150 MB).
+
+---
+
+## Setup & Installation
+
+### Quick setup (recommended)
+
+```bash
+cd vocal-analytics-service
+./setup.sh
+```
+
+The `setup.sh` script checks Python version (3.11+ required), checks for ffmpeg and Ollama, creates a virtual environment, installs dependencies, and creates `.env` from the template.
+
+Then edit `.env` and set your `OPENAI_API_KEY`. For local-only mode, set `LLM_PROVIDER=ollama` instead (no key needed).
+
+### Start the server
+
+```bash
+source .venv/bin/activate
+python app.py
+```
+
+Server starts at:
+- **API:** http://localhost:8000
+- **Swagger docs:** http://localhost:8000/docs
+- **Health check:** http://localhost:8000/health
+
+### Manual setup (if you prefer)
+
+```bash
+# 1. Check prerequisites
+python3 --version   # Must be 3.11+
+ffmpeg -version      # Required for audio files
+
+# 2. Virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure
+cp .env.example .env
+# Edit .env — set OPENAI_API_KEY (or LLM_PROVIDER=ollama for local mode)
+
+# 5. Run
+python app.py
+```
 
 ---
 
@@ -265,55 +265,6 @@ No API key needed — Ollama runs entirely on your machine.
 | Response quality | Best | Good (8B model) |
 | Speed | Fast (~2-3s) | Slow on CPU (~30-45s) |
 | RAM needed | 4 GB | 12+ GB |
-
----
-
-## Setup & Installation
-
-### Quick setup (recommended)
-
-```bash
-cd vocal-analytics-service
-./setup.sh
-```
-
-The `setup.sh` script checks Python version (3.11+ required), checks for ffmpeg, creates a virtual environment, installs dependencies, and creates `.env` from the template.
-
-Then edit `.env` and set your `OPENAI_API_KEY`. For local-only mode, set `LLM_PROVIDER=ollama` instead (no key needed).
-
-### Start the server
-
-```bash
-source .venv/bin/activate
-python app.py
-```
-
-Server starts at:
-- **API:** http://localhost:8000
-- **Swagger docs:** http://localhost:8000/docs
-- **Health check:** http://localhost:8000/health
-
-### Manual setup (if you prefer)
-
-```bash
-# 1. Check prerequisites
-python3 --version   # Must be 3.11+
-ffmpeg -version      # Required for audio files
-
-# 2. Virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure
-cp .env.example .env
-# Edit .env — set OPENAI_API_KEY (or LLM_PROVIDER=ollama for local mode)
-
-# 5. Run
-python app.py
-```
 
 ---
 
@@ -436,6 +387,67 @@ Each request also saves a detailed result file (including token usage) to the `r
 | Length | Max 100,000 characters | 400: "Transcript too long" |
 | Content | Not purely whitespace/punctuation | 400: "Transcript contains no usable content" |
 | Short content | < 50 words | `flags.incomplete_input: true`, best-effort analysis |
+
+---
+
+## Architecture Overview
+
+```
+                         ┌──────────────────────────────┐
+                         │         POST /analyze         │
+                         │                              │
+                         │  Upload: audio file (.wav,   │
+                         │  .mp3, .ogg, .flac, .m4a)    │
+                         │    OR                         │
+                         │  Upload: transcript file      │
+                         │  (.txt)                       │
+                         └──────────────┬───────────────┘
+                                        │
+                              ┌─────────▼─────────┐
+                              │  Input Validator   │
+                              │                    │
+                              │ • File type check  │
+                              │ • Size limit (50MB)│
+                              │ • Encoding check   │
+                              └─────────┬──────────┘
+                                        │
+                          ┌─────────────┼──────────────┐
+                          │ audio file  │              │ .txt file
+                          ▼             │              ▼
+               ┌──────────────────┐     │    ┌─────────────────┐
+               │  Transcription   │     │    │  Transcript      │
+               │  Module          │     │    │  Reader          │
+               │                  │     │    │                  │
+               │  faster-whisper  │     │    │  • UTF-8 decode  │
+               │  (base model,   │     │    │  • Content check │
+               │   CPU inference) │     │    │                  │
+               └────────┬─────────┘     │    └────────┬────────┘
+                        │               │             │
+                        └───────────────┼─────────────┘
+                                        │
+                                        ▼
+                              ┌──────────────────┐
+                              │  AI Analysis     │
+                              │  Engine          │
+                              │                  │
+                              │  • Build prompt  │
+                              │    with taxonomy │
+                              │  • Call LLM API  │
+                              │  • Parse JSON    │
+                              │  • Validate      │
+                              │    against schema│
+                              │  • Score         │
+                              │    confidence    │
+                              │  • Flag          │
+                              │    uncertainty   │
+                              └────────┬─────────┘
+                                       │
+                                       ▼
+                              ┌──────────────────┐
+                              │  Structured      │
+                              │  JSON Response   │
+                              └──────────────────┘
+```
 
 ---
 
@@ -809,29 +821,6 @@ pytest tests/ -v --cov=services/analysis --cov-report=term-missing
 | **SOP Compliance** | Not included | Hybrid rule engine + LLM judge |
 | **Issue Categories** | Fixed list in prompt | Dynamic from `issue_categories` DB table |
 | **Monitoring** | Console logs | CloudWatch + Grafana dashboards |
-
----
-
-## Quick Start (TL;DR)
-
-```bash
-# 1. Setup (one-time)
-./setup.sh
-
-# 2. Configure — set your OpenAI key in .env
-#    Or set LLM_PROVIDER=ollama for local mode (no key needed)
-
-# 3. Run
-source .venv/bin/activate
-python app.py
-
-# 4. Test
-curl -X POST http://localhost:8000/analyze \
-  -F "file=@samples/sample_transcript.txt"
-
-# 5. View API docs
-open http://localhost:8000/docs
-```
 
 ---
 
